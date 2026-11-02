@@ -7,7 +7,7 @@
     "version": "18.0.1.0.0",
     "category": "Productivity",
     "author": "Avunu LLC",
-    "website": "https://avu.nu",
+    "website": "https://github.com/Avunu/ai-addons",
     "license": "AGPL-3",
     "installable": True,
     "depends": [
