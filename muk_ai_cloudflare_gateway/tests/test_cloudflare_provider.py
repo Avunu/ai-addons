@@ -72,6 +72,8 @@ class TestCloudflareProvider(TransactionCase):
         openai_provider = self.env["muk_ai.provider"].create(
             {
                 "name": "openai",
+                # muk_ai seeds an (openai, default) provider; (name, code) is unique.
+                "code": "azure",
                 "api_key": "sk-test",
                 "api_region": "custom",
                 "api_url": "https://my-resource.openai.azure.com/openai/v1",
@@ -98,9 +100,7 @@ class TestCloudflareProvider(TransactionCase):
             {
                 "name": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
                 "task": {"name": "Text Generation"},
-                "properties": [
-                    {"property_id": "context_window", "value": "128000"}
-                ],
+                "properties": [{"property_id": "context_window", "value": "128000"}],
             },
             {
                 "name": "@cf/black-forest-labs/flux-1-schnell",
@@ -114,7 +114,9 @@ class TestCloudflareProvider(TransactionCase):
         with patch.object(
             type(self.provider._get_client()),
             "_http_session",
-            return_value=Mock(get=Mock(return_value=self._mock_search_response(results))),
+            return_value=Mock(
+                get=Mock(return_value=self._mock_search_response(results))
+            ),
         ):
             models = self.provider._get_client().list_models()
 
@@ -139,6 +141,7 @@ class TestCloudflareProvider(TransactionCase):
         """A _http_session() replacement whose .get(url, params=...) result
         is decided by `responder(url, params)`.
         """
+
         def get(url, headers=None, params=None, timeout=None):
             return self._mock_search_response(responder(url, params))
 
@@ -188,9 +191,7 @@ class TestCloudflareProvider(TransactionCase):
             if "ai-gateway/gateways/example-gateway" in url:
                 return {
                     "spend_limits": {
-                        "rules": [
-                            {"model": {"mode": "filter", "values": [allowed]}}
-                        ]
+                        "rules": [{"model": {"mode": "filter", "values": [allowed]}}]
                     }
                 }
             return [
@@ -387,7 +388,7 @@ class TestCloudflareChatCompletions(TransactionCase):
                 "function": {
                     "name": "search",
                     "description": "Search",
-                    "parameters": {},
+                    "parameters": {"type": "object", "properties": {}},
                 },
             },
         )
@@ -400,7 +401,10 @@ class TestCloudflareChatCompletions(TransactionCase):
         result = self.client._parse_response(
             {
                 "choices": [
-                    {"message": {"role": "assistant", "content": "Hello!"}, "finish_reason": "stop"}
+                    {
+                        "message": {"role": "assistant", "content": "Hello!"},
+                        "finish_reason": "stop",
+                    }
                 ],
                 "usage": {"prompt_tokens": 10, "completion_tokens": 3},
             }
@@ -409,7 +413,12 @@ class TestCloudflareChatCompletions(TransactionCase):
         self.assertEqual(result["tool_calls"], [])
         self.assertEqual(
             result["carry_inputs"],
-            [{"role": "assistant", "content": [{"type": "output_text", "text": "Hello!"}]}],
+            [
+                {
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello!"}],
+                }
+            ],
         )
         self.assertEqual(result["usage"]["input_tokens"], 10)
         self.assertEqual(result["usage"]["output_tokens"], 3)
@@ -470,7 +479,7 @@ class TestCloudflareChatCompletions(TransactionCase):
     def test_request_posts_chat_completions_shape(self):
         captured = {}
 
-        def fake_post_json(path, body, timeout=None):
+        def fake_post_json(_client, path, body, timeout=None):
             captured["path"] = path
             captured["body"] = body
             return {
@@ -552,11 +561,11 @@ class TestCloudflareChatCompletions(TransactionCase):
             },
         ]
         with patch.object(type(self.client), "_post_stream", return_value=iter(chunks)):
-            result = self.client._stream({"model": "x", "messages": []}, lambda *a: None)
+            result = self.client._stream(
+                {"model": "x", "messages": []}, lambda *a: None
+            )
 
-        self.assertEqual(
-            result["tool_calls"][0]["arguments"], {"model": "res.partner"}
-        )
+        self.assertEqual(result["tool_calls"][0]["arguments"], {"model": "res.partner"})
 
     # ----------------------------------------------------------
     # Streaming

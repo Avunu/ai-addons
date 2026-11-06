@@ -12,20 +12,20 @@ from odoo.exceptions import UserError
 from odoo.addons.muk_ai.providers.base import ProviderBase
 from odoo.addons.muk_ai.providers.region import CUSTOM
 
-CLOUDFLARE_API_BASE = 'https://api.cloudflare.com/client/v4'
+CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4"
 MODELS_SEARCH_PAGE_SIZE = 100
 
 # Cloudflare's model search API groups models by task; only these map onto
 # a modality muk_ai.model actually supports (chat, image). Everything else
 # (embeddings, ASR, TTS, translation, guardrails, ...) is skipped.
 TASK_MODALITY = {
-    'Text Generation': 'chat',
-    'Text-to-Image': 'image',
+    "Text Generation": "chat",
+    "Text-to-Image": "image",
 }
 
 # property_id values seen on Cloudflare model objects that hold the
 # context window, checked case-insensitively since this isn't documented.
-CONTEXT_WINDOW_PROPERTY_IDS = ('context_window', 'max_input_tokens', 'context_length')
+CONTEXT_WINDOW_PROPERTY_IDS = ("context_window", "max_input_tokens", "context_length")
 
 
 class CloudflareProvider(ProviderBase):
@@ -64,23 +64,23 @@ class CloudflareProvider(ProviderBase):
       makes - that header has no meaning there).
     """
 
-    name = 'cloudflare'
-    label = 'Cloudflare Workers AI'
-    default_model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
-    default_url = ''
+    name = "cloudflare"
+    label = "Cloudflare Workers AI"
+    default_model = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+    default_url = ""
     regions = (CUSTOM,)
 
     @property
     def _api_key(self) -> str:
-        return self.provider.sudo().cloudflare_api_token or ''
+        return self.provider.sudo().cloudflare_api_token or ""
 
     def headers(self) -> dict:
         headers = {
-            'Authorization': f'Bearer {self.api_key}',
-            'Content-Type': 'application/json',
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
         }
         if gateway_id := self.provider.sudo().cloudflare_gateway_id:
-            headers['cf-aig-gateway-id'] = gateway_id
+            headers["cf-aig-gateway-id"] = gateway_id
         return headers
 
     # ----------------------------------------------------------
@@ -107,16 +107,16 @@ class CloudflareProvider(ProviderBase):
         the base class never asks for the other two.
         """
         body = {
-            'model': self.model_for(model),
-            'messages': self._inputs_to_messages(self._wire_items(inputs)),
+            "model": self.model_for(model),
+            "messages": self._inputs_to_messages(self._wire_items(inputs)),
         }
         if self.max_tokens:
-            body['max_tokens'] = self.max_tokens
+            body["max_tokens"] = self.max_tokens
         if tools := self._tools_to_openai(tools_schema):
-            body['tools'] = tools
+            body["tools"] = tools
         if callable(on_delta):
             return self._stream(body, on_delta)
-        return self._parse_response(self._post_json('/chat/completions', body))
+        return self._parse_response(self._post_json("/chat/completions", body))
 
     # ----------------------------------------------------------
     # Canonical inputs -> Chat Completions messages
@@ -139,53 +139,53 @@ class CloudflareProvider(ProviderBase):
         """
         messages = []
         for item in inputs or []:
-            item_type = item.get('type')
-            role = item.get('role')
+            item_type = item.get("type")
+            role = item.get("role")
 
-            if item_type == 'function_call':
+            if item_type == "function_call":
                 try:
-                    arguments = json.loads(item.get('arguments') or '{}')
+                    arguments = json.loads(item.get("arguments") or "{}")
                 except ValueError:
                     arguments = {}
                 tool_call = {
-                    'id': item.get('call_id'),
-                    'type': 'function',
-                    'function': {
-                        'name': item.get('name'),
-                        'arguments': json.dumps(arguments, default=str),
+                    "id": item.get("call_id"),
+                    "type": "function",
+                    "function": {
+                        "name": item.get("name"),
+                        "arguments": json.dumps(arguments, default=str),
                     },
                 }
-                if messages and messages[-1].get('role') == 'assistant':
-                    messages[-1].setdefault('tool_calls', []).append(tool_call)
+                if messages and messages[-1].get("role") == "assistant":
+                    messages[-1].setdefault("tool_calls", []).append(tool_call)
                 else:
                     # Cloudflare's schema rejects content: null here (it
                     # wants 'role'+'content' present and string-typed even
                     # on a tool_calls-only message) - empty string, not None.
                     messages.append(
-                        {'role': 'assistant', 'content': '', 'tool_calls': [tool_call]}
+                        {"role": "assistant", "content": "", "tool_calls": [tool_call]}
                     )
                 continue
 
-            if item_type == 'function_call_output':
-                output = item.get('output')
+            if item_type == "function_call_output":
+                output = item.get("output")
                 if not isinstance(output, str):
                     output = json.dumps(output, default=str)
                 messages.append(
                     {
-                        'role': 'tool',
-                        'tool_call_id': item.get('call_id'),
-                        'content': output,
+                        "role": "tool",
+                        "tool_call_id": item.get("call_id"),
+                        "content": output,
                     }
                 )
                 continue
 
-            if role in ('system', 'user', 'assistant'):
-                blocks = cls._content_to_openai(item.get('content'))
+            if role in ("system", "user", "assistant"):
+                blocks = cls._content_to_openai(item.get("content"))
                 if blocks:
                     # Always the content-blocks array, never collapsed to a
                     # plain string - Cloudflare's schema rejects a bare
                     # string here even for text-only messages.
-                    messages.append({'role': role, 'content': blocks})
+                    messages.append({"role": role, "content": blocks})
 
         return messages
 
@@ -194,15 +194,15 @@ class CloudflareProvider(ProviderBase):
         """Convert canonical content (string or block list) into Chat
         Completions content blocks."""
         if isinstance(content, str):
-            return [{'type': 'text', 'text': content}] if content else []
+            return [{"type": "text", "text": content}] if content else []
         blocks = []
         for chunk in content or []:
             if not isinstance(chunk, dict):
                 continue
-            if chunk.get('type') == 'muk_ai_attachment':
+            if chunk.get("type") == "muk_ai_attachment":
                 blocks.append(cls._attachment_to_openai(chunk))
-            elif chunk.get('text'):
-                blocks.append({'type': 'text', 'text': chunk['text']})
+            elif chunk.get("text"):
+                blocks.append({"type": "text", "text": chunk["text"]})
         return blocks
 
     @staticmethod
@@ -213,21 +213,21 @@ class CloudflareProvider(ProviderBase):
         Responses API's `input_file` - anything that isn't an image falls
         back to inline text, same as when no strategy matches at all.
         """
-        strategy = block.get('strategy')
-        mimetype = block.get('mimetype') or 'application/octet-stream'
-        if strategy == 'image':
+        strategy = block.get("strategy")
+        mimetype = block.get("mimetype") or "application/octet-stream"
+        if strategy == "image":
             return {
-                'type': 'image_url',
-                'image_url': {
-                    'url': f'data:{mimetype};base64,{block.get("data_b64", "")}'
+                "type": "image_url",
+                "image_url": {
+                    "url": f'data:{mimetype};base64,{block.get("data_b64", "")}'
                 },
             }
-        filename = block.get('filename') or 'attachment'
-        text = block.get('inline_text') or ''
-        prefix = f'--- File: {filename} ({mimetype}) ---\n'
-        if block.get('truncated'):
-            text += '\n[truncated]'
-        return {'type': 'text', 'text': prefix + text}
+        filename = block.get("filename") or "attachment"
+        text = block.get("inline_text") or ""
+        prefix = f"--- File: {filename} ({mimetype}) ---\n"
+        if block.get("truncated"):
+            text += "\n[truncated]"
+        return {"type": "text", "text": prefix + text}
 
     @staticmethod
     def _tools_to_openai(tools_schema) -> list[dict]:
@@ -239,18 +239,18 @@ class CloudflareProvider(ProviderBase):
         seen = set()
         out = []
         for tool in tools_schema:
-            name = tool['name']
+            name = tool["name"]
             if name in seen:
                 continue
             seen.add(name)
             out.append(
                 {
-                    'type': 'function',
-                    'function': {
-                        'name': name,
-                        'description': tool.get('description') or '',
-                        'parameters': tool.get('parameters')
-                        or {'type': 'object', 'properties': {}},
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": tool.get("description") or "",
+                        "parameters": tool.get("parameters")
+                        or {"type": "object", "properties": {}},
                     },
                 }
             )
@@ -279,7 +279,7 @@ class CloudflareProvider(ProviderBase):
         if isinstance(args, str):
             args, error = ProviderBase._parse_tool_arguments(args)
         if not isinstance(args, dict):
-            return {}, f'Tool arguments were not a JSON object: {raw!r}'
+            return {}, f"Tool arguments were not a JSON object: {raw!r}"
         return args, error
 
     @classmethod
@@ -291,24 +291,24 @@ class CloudflareProvider(ProviderBase):
         tool_calls = []
         carries = []
         for entry in tool_calls_raw or []:
-            call_id = entry.get('id')
-            func = entry.get('function') or {}
-            name = func.get('name')
-            args, parse_error = cls._parse_tool_arguments(func.get('arguments'))
+            call_id = entry.get("id")
+            func = entry.get("function") or {}
+            name = func.get("name")
+            args, parse_error = cls._parse_tool_arguments(func.get("arguments"))
             tool_calls.append(
                 {
-                    'call_id': call_id,
-                    'name': name,
-                    'arguments': args,
-                    '_parse_error': parse_error,
+                    "call_id": call_id,
+                    "name": name,
+                    "arguments": args,
+                    "_parse_error": parse_error,
                 }
             )
             carries.append(
                 {
-                    'type': 'function_call',
-                    'name': name,
-                    'arguments': json.dumps(args, default=str),
-                    'call_id': call_id,
+                    "type": "function_call",
+                    "name": name,
+                    "arguments": json.dumps(args, default=str),
+                    "call_id": call_id,
                 }
             )
         return tool_calls, carries
@@ -320,28 +320,31 @@ class CloudflareProvider(ProviderBase):
         carry_inputs = []
         if text:
             carry_inputs.append(
-                {'role': 'assistant', 'content': [{'type': 'output_text', 'text': text}]}
+                {
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": text}],
+                }
             )
         carry_inputs.extend(function_call_carries)
         return {
-            'text': text,
-            'tool_calls': tool_calls,
-            'carry_inputs': carry_inputs,
-            'usage': cls._usage(
-                input_tokens=usage_raw.get('prompt_tokens'),
-                output_tokens=usage_raw.get('completion_tokens'),
+            "text": text,
+            "tool_calls": tool_calls,
+            "carry_inputs": carry_inputs,
+            "usage": cls._usage(
+                input_tokens=usage_raw.get("prompt_tokens"),
+                output_tokens=usage_raw.get("completion_tokens"),
             ),
         }
 
     def _parse_response(self, payload: dict) -> dict:
-        choice = (payload.get('choices') or [{}])[0]
-        message = choice.get('message') or {}
-        content = message.get('content')
-        text = content if isinstance(content, str) else ''
+        choice = (payload.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        content = message.get("content")
+        text = content if isinstance(content, str) else ""
         result = self._build_result(
-            text, message.get('tool_calls'), payload.get('usage') or {}
+            text, message.get("tool_calls"), payload.get("usage") or {}
         )
-        if choice.get('finish_reason') == 'length':
+        if choice.get("finish_reason") == "length":
             self._apply_truncation(result, limit=self.max_tokens)
         return result
 
@@ -350,54 +353,60 @@ class CloudflareProvider(ProviderBase):
     # ----------------------------------------------------------
 
     def _stream(self, body: dict, on_delta) -> dict:
-        body = {**body, 'stream': True}
+        body = {**body, "stream": True}
         text_parts = []
         tool_calls_by_index: dict[int, dict] = {}
         usage_raw = {}
         finish_reason = None
-        for chunk in self._post_stream('/chat/completions', body):
-            for choice in chunk.get('choices') or []:
-                delta = choice.get('delta') or {}
-                if content := delta.get('content'):
+        for chunk in self._post_stream("/chat/completions", body):
+            for choice in chunk.get("choices") or []:
+                delta = choice.get("delta") or {}
+                if content := delta.get("content"):
                     text_parts.append(content)
-                    self._call_on_delta(on_delta, 'text', {'delta': content})
-                for tc_delta in delta.get('tool_calls') or []:
+                    self._call_on_delta(on_delta, "text", {"delta": content})
+                for tc_delta in delta.get("tool_calls") or []:
                     self._apply_tool_call_delta(tc_delta, tool_calls_by_index, on_delta)
-                if choice.get('finish_reason'):
-                    finish_reason = choice['finish_reason']
-            if chunk.get('usage'):
-                usage_raw = chunk['usage']
+                if choice.get("finish_reason"):
+                    finish_reason = choice["finish_reason"]
+            if chunk.get("usage"):
+                usage_raw = chunk["usage"]
 
         tool_calls_raw = [
             {
-                'id': entry['call_id'],
-                'function': {'name': entry['name'], 'arguments': entry['arguments']},
+                "id": entry["call_id"],
+                "function": {"name": entry["name"], "arguments": entry["arguments"]},
             }
             for _, entry in sorted(tool_calls_by_index.items())
         ]
-        result = self._build_result(''.join(text_parts), tool_calls_raw, usage_raw)
-        if finish_reason == 'length':
+        result = self._build_result("".join(text_parts), tool_calls_raw, usage_raw)
+        if finish_reason == "length":
             self._apply_truncation(result, on_delta, self.max_tokens)
         return result
 
     @staticmethod
-    def _apply_tool_call_delta(tc_delta: dict, tool_calls_by_index: dict, on_delta) -> None:
-        index = tc_delta.get('index', 0)
+    def _apply_tool_call_delta(
+        tc_delta: dict, tool_calls_by_index: dict, on_delta
+    ) -> None:
+        index = tc_delta.get("index", 0)
         entry = tool_calls_by_index.get(index)
         if entry is None:
             entry = {
-                'call_id': tc_delta.get('id'),
-                'name': (tc_delta.get('function') or {}).get('name'),
-                'arguments': '',
+                "call_id": tc_delta.get("id"),
+                "name": (tc_delta.get("function") or {}).get("name"),
+                "arguments": "",
             }
             tool_calls_by_index[index] = entry
             CloudflareProvider._call_on_delta(
-                on_delta, 'tool_start', {'call_id': entry['call_id'], 'name': entry['name']}
+                on_delta,
+                "tool_start",
+                {"call_id": entry["call_id"], "name": entry["name"]},
             )
-        if args_delta := (tc_delta.get('function') or {}).get('arguments'):
-            entry['arguments'] += args_delta
+        if args_delta := (tc_delta.get("function") or {}).get("arguments"):
+            entry["arguments"] += args_delta
             CloudflareProvider._call_on_delta(
-                on_delta, 'tool_args', {'call_id': entry['call_id'], 'delta': args_delta}
+                on_delta,
+                "tool_args",
+                {"call_id": entry["call_id"], "delta": args_delta},
             )
 
     # ----------------------------------------------------------
@@ -413,14 +422,14 @@ class CloudflareProvider(ProviderBase):
         """
         try:
             response = self._http_session().get(
-                f'{CLOUDFLARE_API_BASE}{path}',
-                headers={'Authorization': f'Bearer {self.api_key}'},
+                f"{CLOUDFLARE_API_BASE}{path}",
+                headers={"Authorization": f"Bearer {self.api_key}"},
                 params=params,
                 timeout=self.request_timeout,
             )
             response.raise_for_status()
         except requests.HTTPError as error:
-            self._raise(getattr(error.response, 'text', '') or str(error))
+            self._raise(getattr(error.response, "text", "") or str(error))
         except requests.RequestException as error:
             self._raise(error)
         return response.json()
@@ -449,7 +458,7 @@ class CloudflareProvider(ProviderBase):
         """
         account_id = self.provider.sudo().cloudflare_account_id
         if not account_id:
-            raise UserError(_('Set an Account ID before fetching models.'))
+            raise UserError(_("Set an Account ID before fetching models."))
 
         gateway_id = self.provider.sudo().cloudflare_gateway_id
         allowed_names = (
@@ -466,27 +475,27 @@ class CloudflareProvider(ProviderBase):
         Workers AI to, or an empty set when nothing restricts it.
         """
         payload = self._cloudflare_account_get(
-            f'/accounts/{account_id}/ai-gateway/gateways/{gateway_id}'
+            f"/accounts/{account_id}/ai-gateway/gateways/{gateway_id}"
         )
-        rules = ((payload.get('result') or {}).get('spend_limits') or {}).get(
-            'rules'
+        rules = ((payload.get("result") or {}).get("spend_limits") or {}).get(
+            "rules"
         ) or []
         names = set()
         for rule in rules:
-            model = rule.get('model') or {}
-            if model.get('mode') == 'filter':
-                names.update(model.get('values') or [])
+            model = rule.get("model") or {}
+            if model.get("mode") == "filter":
+                names.update(model.get("values") or [])
         return names
 
     def _search_models_by_name(self, account_id: str, names: set[str]) -> list[dict]:
-        path = f'/accounts/{account_id}/ai/models/search'
+        path = f"/accounts/{account_id}/ai/models/search"
         results = []
         for name in sorted(names):
-            payload = self._cloudflare_account_get(path, params={'search': name})
+            payload = self._cloudflare_account_get(path, params={"search": name})
             results.extend(
                 item
-                for item in payload.get('result') or []
-                if self._strip_cf_prefix(item.get('name') or item.get('id') or '')
+                for item in payload.get("result") or []
+                if self._strip_cf_prefix(item.get("name") or item.get("id") or "")
                 == self._strip_cf_prefix(name)
             )
         return results
@@ -496,17 +505,17 @@ class CloudflareProvider(ProviderBase):
         # Spend-limit filter values are bare ("ibm-granite/granite-4.0-h-
         # micro"); model search results are always "@cf/"-prefixed - compare
         # both stripped of it rather than assuming either side's shape.
-        return name.removeprefix('@cf/')
+        return name.removeprefix("@cf/")
 
     def _search_all_models(self, account_id: str) -> list[dict]:
-        path = f'/accounts/{account_id}/ai/models/search'
+        path = f"/accounts/{account_id}/ai/models/search"
         results = []
         page = 1
         while True:
             payload = self._cloudflare_account_get(
-                path, params={'page': page, 'per_page': MODELS_SEARCH_PAGE_SIZE}
+                path, params={"page": page, "per_page": MODELS_SEARCH_PAGE_SIZE}
             )
-            page_results = payload.get('result') or []
+            page_results = payload.get("result") or []
             results.extend(page_results)
             if len(page_results) < MODELS_SEARCH_PAGE_SIZE:
                 return results
@@ -518,19 +527,19 @@ class CloudflareProvider(ProviderBase):
         """
         models = {}
         for item in results:
-            task = (item.get('task') or {}).get('name')
+            task = (item.get("task") or {}).get("name")
             modality = TASK_MODALITY.get(task)
-            technical_name = item.get('name') or item.get('id')
+            technical_name = item.get("name") or item.get("id")
             if not modality or not technical_name or technical_name in models:
                 continue
             models[technical_name] = {
-                'technical_name': technical_name,
-                'name': technical_name.rsplit('/', 1)[-1],
-                'modality': modality,
-                'context_window': self._extract_context_window(item),
-                'input_rate': 0.0,
-                'output_rate': 0.0,
-                'notes': _(
+                "technical_name": technical_name,
+                "name": technical_name.rsplit("/", 1)[-1],
+                "modality": modality,
+                "context_window": self._extract_context_window(item),
+                "input_rate": 0.0,
+                "output_rate": 0.0,
+                "notes": _(
                     "Imported from Cloudflare's model catalog. Pricing "
                     "is not returned by that API - check "
                     "https://developers.cloudflare.com/workers-ai/"
@@ -542,11 +551,11 @@ class CloudflareProvider(ProviderBase):
 
     @staticmethod
     def _extract_context_window(item: dict) -> int:
-        for prop in item.get('properties') or []:
-            property_id = str(prop.get('property_id') or '').lower()
+        for prop in item.get("properties") or []:
+            property_id = str(prop.get("property_id") or "").lower()
             if property_id in CONTEXT_WINDOW_PROPERTY_IDS:
                 try:
-                    return int(prop.get('value') or 0)
+                    return int(prop.get("value") or 0)
                 except (TypeError, ValueError):
                     return 0
         return 0
