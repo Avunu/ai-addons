@@ -1,11 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
+<?xml version="1.0" encoding="UTF-8" ?>
 <odoo>
-
     <record id="view_muk_ai_provider_form_cloudflare" model="ir.ui.view">
         <field name="name">muk_ai.provider.form.cloudflare</field>
         <field name="model">muk_ai.provider</field>
-        <field name="inherit_id" ref="muk_ai.view_muk_ai_provider_form"/>
+        <field name="inherit_id" ref="muk_ai.view_muk_ai_provider_form" />
         <field name="arch" type="xml">
             <button name="action_test_connection" position="after">
                 <button
@@ -24,10 +22,7 @@
                     invisible="name != 'cloudflare'"
                     required="name == 'cloudflare'"
                 />
-                <field
-                    name="cloudflare_gateway_id"
-                    invisible="name != 'cloudflare'"
-                />
+                <field name="cloudflare_gateway_id" invisible="name != 'cloudflare'" />
                 <field
                     name="cloudflare_api_token"
                     password="True"
@@ -50,5 +45,4 @@
             </field>
         </field>
     </record>
-
 </odoo>
