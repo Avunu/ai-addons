@@ -25,13 +25,15 @@ dependencies = [
 # relock leaves this block alone.
 dev = [
     "debugpy",
-    "ruff",
     # Odoo's --dev=reload watcher needs a filesystem watcher it does not declare.
     "watchdog",
     # Odoo's test runner imports freezegun, and browser tours need
     # websocket-client (a missing one skips every tour silently).
     "freezegun",
     "websocket-client",
+    # muk_ai depends on attachment_indexation, which logs a WARNING at startup
+    # without pdfminer, and the test gate's checklog fails on it.
+    "pdfminer.six",
 ]
 
 [tool.uv]
@@ -65,3 +67,14 @@ packages = []
 "rjsmin" = ["setuptools"]
 "vobject" = ["setuptools"]
 # <<< odoo-nix: sdist build deps (managed) <<<
+
+[tool.odoo-nix]
+schema = 1
+profile = "github:Avunu/odoo-standards-profile/v1"
+
+[tool.odoo-nix.icons]
+src-icon = "assets/icons/ai-addons.png"
+
+# muk_ai comes from muk-it/odoo-modules, which has no Python packages, so a whool-packaged addon here can't resolve.
+[tool.odoo-nix.packaging]
+enable = false
