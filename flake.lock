@@ -253,11 +253,11 @@
     "muk-it-odoo-modules": {
       "flake": false,
       "locked": {
-        "lastModified": 1793604278,
-        "narHash": "sha256-Sp9FymUDReT1ZAm8WHkUvRFNLq73Pn707uk7ErAD8FM=",
+        "lastModified": 1793959725,
+        "narHash": "sha256-Ec1lz3CiF9u35o6B97usmST3DNeiY+Cn6Q27QtmiWiA=",
         "owner": "muk-it",
         "repo": "odoo-modules",
-        "rev": "0c4b42541137049fbbd7f3548ed2ba3f63145e9d",
+        "rev": "5abe90b16c7c0e30fabe5cf6d3e4e80bf0496907",
         "type": "github"
       },
       "original": {
